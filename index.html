@@ -99,7 +99,7 @@ let L=localStorage.getItem("lang")||"en",last=null;
 const $=id=>document.getElementById(id),li=()=>L==="ar"?1:0,tr=k=>T[L][k];
 
 function fill(sel,obj,key){const v=sel.value;sel.innerHTML="";
- for(const k in obj){const o=document.createElement("option");o.value=k;o.textContent=key?obj[k][key==="n"?li():0]:obj[k][li()];sel.appendChild(o)}
+ for(const k in obj){const o=document.createElement("option");o.value=k;o.textContent=key?obj[k].n[li()]:obj[k][li()];sel.appendChild(o)}
  if(v)sel.value=v}
 function ui(){
  document.documentElement.lang=L;document.documentElement.dir=L==="ar"?"rtl":"ltr";
