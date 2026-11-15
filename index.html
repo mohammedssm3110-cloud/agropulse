@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgroPulse – NASA-Driven Crop Rotation Intelligence</title>
+<style>
+:root{--bg:#f4f7f1;--card:#fff;--tx:#1d2b1f;--mut:#5d6b5f;--g:#2f7d32;--bd:#d9e2d6}
+@media(prefers-color-scheme:dark){:root{--bg:#121a13;--card:#1c261d;--tx:#e8f0e6;--mut:#9fb0a0;--g:#6fcf73;--bd:#2d3b2e}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Tahoma,sans-serif;background:var(--bg);color:var(--tx);line-height:1.5}
+.w{max-width:760px;margin:0 auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{margin:0;font-size:1.5rem;color:var(--g)}p.s{margin:2px 0 12px;color:var(--mut);font-size:.9rem}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:12px 0}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 3px}
+select,input,button{width:100%;padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:1rem}
+.r{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{background:var(--g);color:#fff;border:0;font-weight:600;margin-top:12px;cursor:pointer}
+#lg{width:auto;margin:0;padding:6px 12px;background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.k{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.k b{display:block;font-size:1.3rem;color:var(--g)}.k span{font-size:.75rem;color:var(--mut)}
+.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--g)}
+.t{display:flex;justify-content:space-between;font-weight:600}
+ul{margin:8px 0 0;padding-inline-start:18px;font-size:.88rem;color:var(--mut)}
+.n{font-size:.78rem;color:var(--mut)}
+</style>
+</head>
+<body><div class="w">
+<header><div><h1>🌱 AgroPulse</h1><p class="s" id="sub"></p></div><button id="lg"></button></header>
+
+<div class="c">
+ <label id="l_loc"></label><select id="loc"></select>
+ <div class="r"><div><label>Latitude</label><input id="lat" type="number" step="0.01"></div>
+ <div><label>Longitude</label><input id="lon" type="number" step="0.01"></div></div>
+ <div class="r"><div><label id="l_soil"></label><select id="soil"></select></div>
+ <div><label id="l_prev"></label><select id="prev"></select></div></div>
+ <label id="l_irr"></label><select id="irr"></select>
+ <button id="go"></button>
+</div>
+<div id="out"></div>
+<p class="n" id="note"></p>
+</div>
+<script>
+const CROPS={
+ wheat:{n:["Wheat","قمح"],f:"cereal",w:450,t:[8,24],N:"heavy",s:["loam","clay"]},
+ maize:{n:["Maize","ذرة"],f:"cereal",w:600,t:[18,32],N:"heavy",s:["loam","sand"]},
+ faba:{n:["Faba bean","فول"],f:"legume",w:400,t:[8,22],N:"fixer",s:["clay","loam"]},
+ chickpea:{n:["Chickpea","حمص"],f:"legume",w:350,t:[10,26],N:"fixer",s:["loam","sand"]},
+ berseem:{n:["Berseem clover","برسيم"],f:"legume",w:500,t:[8,26],N:"fixer",s:["clay","loam"]},
+ potato:{n:["Potato","بطاطس"],f:"solanaceae",w:500,t:[10,22],N:"heavy",s:["loam","sand"]},
+ tomato:{n:["Tomato","طماطم"],f:"solanaceae",w:550,t:[18,30],N:"heavy",s:["loam","sand"]},
+ cotton:{n:["Cotton","قطن"],f:"malvaceae",w:700,t:[20,34],N:"heavy",s:["clay","loam"]},
+ sunflower:{n:["Sunflower","عباد الشمس"],f:"asteraceae",w:500,t:[18,30],N:"light",s:["loam","clay","sand"]}
+};
+const LOCS={ // fallback demo values (approximate): rain mm/yr, temp °C, root-zone wetness 0-1
+ cairo:{n:["Cairo, Egypt","القاهرة، مصر"],lat:30.04,lon:31.24,d:[25,22,.30]},
+ riyadh:{n:["Riyadh, Saudi Arabia","الرياض، السعودية"],lat:24.71,lon:46.68,d:[100,26,.20]},
+ casa:{n:["Casablanca, Morocco","الدار البيضاء، المغرب"],lat:33.57,lon:-7.59,d:[400,18,.50]},
+ khartoum:{n:["Khartoum, Sudan","الخرطوم، السودان"],lat:15.5,lon:32.56,d:[160,29,.30]},
+ nairobi:{n:["Nairobi, Kenya","نيروبي، كينيا"],lat:-1.29,lon:36.82,d:[950,19,.60]},
+ custom:{n:["Custom coordinates","إحداثيات مخصصة"],lat:30.04,lon:31.24,d:[300,22,.40]}
+};
+const SOILS={sand:["Sandy","رملية"],loam:["Loam","طينية رملية (لومية)"],clay:["Clay","طينية"]};
+const T={
+ en:{sub:"NASA-driven crop rotation decision support",loc:"Location",soil:"Soil type",prev:"Previous crop",irr:"Irrigation available?",
+  yes:"Yes",no:"No (rain-fed)",go:"Recommend next crop",lg:"العربية",
+  rain:"Rain (mm/yr)",temp:"Avg temp (°C)",wet:"Root-zone wetness",
+  live:"Live data: NASA POWER (GPM/IMERG-based precipitation, MERRA-2 meteorology & soil wetness), last 3 full years.",
+  demo:"Offline fallback: approximate built-in demo values (live NASA POWER request failed).",
+  note:"Decision-support prototype. Recommendations come from a transparent rule-based scoring model (not machine learning). Validate with local agronomists.",
+  top:"Top recommendations",loading:"Fetching NASA data…",
+  r_fam:"Different plant family from previous crop → breaks pest & disease cycles",
+  r_same:"Same plant family as previous crop → higher pest/disease carry-over",
+  r_fix:"Follows a nitrogen-fixing legume → soil nitrogen benefit",
+  r_leg:"Legume after a heavy feeder → restores soil nitrogen",
+  r_hh:"Heavy nutrient feeder after a heavy feeder → depletion risk",
+  r_wok:"Water supply covers crop need",r_wlow:"Water supply below crop need",
+  r_tok:"Temperature within the crop's optimum range",r_tbad:"Temperature outside the crop's optimum range",
+  r_sok:"Suited to this soil type",r_sbad:"Not ideal for this soil type",
+  r_dry:"Low soil wetness and no irrigation → risk for a water-hungry crop"},
+ ar:{sub:"دعم قرار تناوب المحاصيل باستخدام بيانات ناسا",loc:"الموقع",soil:"نوع التربة",prev:"محصول الموسم السابق",irr:"هل يتوفر ري؟",
+  yes:"نعم",no:"لا (مطري)",go:"اقترح المحصول التالي",lg:"English",
+  rain:"المطر (ملم/سنة)",temp:"متوسط الحرارة (°م)",wet:"رطوبة منطقة الجذور",
+  live:"بيانات حية: NASA POWER (أمطار مبنية على GPM/IMERG، وأرصاد ورطوبة تربة من MERRA-2)، آخر 3 سنوات كاملة.",
+  demo:"بيانات احتياطية: قيم تجريبية تقريبية مدمجة (تعذّر الاتصال بـ NASA POWER).",
+  note:"نموذج أولي لدعم القرار. التوصيات من نظام نقاط شفاف قائم على القواعد (وليس تعلماً آلياً). يُرجى مراجعة مهندس زراعي محلي.",
+  top:"أفضل التوصيات",loading:"جاري جلب بيانات ناسا…",
+  r_fam:"عائلة نباتية مختلفة عن المحصول السابق ← كسر دورة الآفات والأمراض",
+  r_same:"نفس العائلة النباتية للمحصول السابق ← زيادة خطر انتقال الآفات",
+  r_fix:"يأتي بعد بقولي مثبّت للنيتروجين ← فائدة نيتروجينية للتربة",
+  r_leg:"بقولي بعد محصول مستنزف ← يعوّض نيتروجين التربة",
+  r_hh:"محصول مستنزف بعد مستنزف ← خطر إجهاد التربة",
+  r_wok:"المياه المتاحة تغطي احتياج المحصول",r_wlow:"المياه المتاحة أقل من احتياج المحصول",
+  r_tok:"الحرارة ضمن المدى الأمثل للمحصول",r_tbad:"الحرارة خارج المدى الأمثل للمحصول",
+  r_sok:"مناسب لنوع التربة هذا",r_sbad:"غير مثالي لنوع التربة هذا",
+  r_dry:"رطوبة تربة منخفضة دون ري ← خطر على محصول كثير الماء"}
+};
+let L=localStorage.getItem("lang")||"en",last=null;
+const $=id=>document.getElementById(id),li=()=>L==="ar"?1:0,tr=k=>T[L][k];
+
+function fill(sel,obj,key){const v=sel.value;sel.innerHTML="";
+ for(const k in obj){const o=document.createElement("option");o.value=k;o.textContent=key?obj[k][key==="n"?li():0]:obj[k][li()];sel.appendChild(o)}
+ if(v)sel.value=v}
+function ui(){
+ document.documentElement.lang=L;document.documentElement.dir=L==="ar"?"rtl":"ltr";
+ $("sub").textContent=tr("sub");$("l_loc").textContent=tr("loc");$("l_soil").textContent=tr("soil");
+ $("l_prev").textContent=tr("prev");$("l_irr").textContent=tr("irr");$("go").textContent=tr("go");
+ $("lg").textContent=tr("lg");$("note").textContent=tr("note");
+ fill($("loc"),LOCS,"n");fill($("soil"),SOILS);fill($("prev"),CROPS,"n");
+ const i=$("irr"),v=i.value||"0";i.innerHTML=`<option value="1">${tr("yes")}</option><option value="0">${tr("no")}</option>`;i.value=v;
+ if(last)render(last)}
+
+function score(c,p,env,soil,irr){
+ let s=50;const why=[],cr=CROPS[c],pr=CROPS[p];
+ if(cr.f===pr.f){s-=35;why.push(["r_same",0])}else{s+=10;why.push(["r_fam",1])}
+ if(pr.N==="fixer"&&cr.N==="heavy"){s+=20;why.push(["r_fix",1])}
+ else if(pr.N==="heavy"&&cr.N==="fixer"){s+=15;why.push(["r_leg",1])}
+ else if(pr.N==="heavy"&&cr.N==="heavy"){s-=10;why.push(["r_hh",0])}
+ const ratio=(env.rain+(irr?400:0))/cr.w;
+ if(ratio>=1){s+=15;why.push(["r_wok",1])}else{s-=(1-ratio)*40;why.push(["r_wlow",0])}
+ if(env.temp>=cr.t[0]&&env.temp<=cr.t[1]){s+=15;why.push(["r_tok",1])}
+ else{const d=Math.min(Math.abs(env.temp-cr.t[0]),Math.abs(env.temp-cr.t[1]));s-=Math.min(20,d*3);why.push(["r_tbad",0])}
+ if(cr.s.includes(soil)){s+=10;why.push(["r_sok",1])}else{s-=5;why.push(["r_sbad",0])}
+ if(env.wet<.35&&!irr&&cr.w>=550){s-=10;why.push(["r_dry",0])}
+ return{c,score:Math.max(0,Math.min(100,Math.round(s))),why}}
+
+async function getNasa(lat,lon){
+ const y=new Date().getFullYear()-1,url=`https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=PRECTOTCORR,T2M,GWETROOT&community=AG&longitude=${lon}&latitude=${lat}&start=${y-2}&end=${y}&format=JSON`;
+ const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),12000);
+ try{const r=await fetch(url,{signal:ctl.signal});if(!r.ok)throw 0;
+  const p=(await r.json()).properties.parameter;
+  const avg=o=>{const v=Object.entries(o).filter(([k,x])=>!k.endsWith("13")&&x>-900).map(e=>e[1]);if(!v.length)throw 0;return v.reduce((a,b)=>a+b,0)/v.length};
+  return{rain:Math.round(avg(p.PRECTOTCORR)*365),temp:+avg(p.T2M).toFixed(1),wet:+avg(p.GWETROOT).toFixed(2),live:true}
+ }finally{clearTimeout(to)}}
+
+function render(d){
+ const{env,res}=d;
+ $("out").innerHTML=`<div class="c"><div class="k"><div><b>${env.rain}</b><span>${tr("rain")}</span></div>
+ <div><b>${env.temp}</b><span>${tr("temp")}</span></div><div><b>${env.wet}</b><span>${tr("wet")}</span></div></div>
+ <p class="n">${env.live?tr("live"):tr("demo")}</p></div>
+ <h3>${tr("top")}</h3>`+res.slice(0,3).map((r,i)=>`<div class="c"><div class="t"><span>${i+1}. ${CROPS[r.c].n[li()]}</span><span>${r.score}/100</span></div>
+ <div class="bar"><i style="width:${r.score}%"></i></div>
+ <ul>${r.why.map(w=>`<li>${w[1]?"✅":"⚠️"} ${tr(w[0])}</li>`).join("")}</ul></div>`).join("")}
+
+$("go").onclick=async()=>{
+ const lat=+$("lat").value,lon=+$("lon").value,loc=LOCS[$("loc").value];
+ $("out").innerHTML=`<div class="c">${tr("loading")}</div>`;
+ let env;try{env=await getNasa(lat,lon)}catch(e){env={rain:loc.d[0],temp:loc.d[1],wet:loc.d[2],live:false}}
+ const prev=$("prev").value,irr=$("irr").value==="1",soil=$("soil").value;
+ const res=Object.keys(CROPS).map(c=>score(c,prev,env,soil,irr)).sort((a,b)=>b.score-a.score);
+ last={env,res};render(last)};
+$("loc").onchange=()=>{const l=LOCS[$("loc").value];$("lat").value=l.lat;$("lon").value=l.lon};
+$("lg").onclick=()=>{L=L==="ar"?"en":"ar";localStorage.setItem("lang",L);ui()};
+ui();$("loc").onchange();
+</script>
+</body></html>
