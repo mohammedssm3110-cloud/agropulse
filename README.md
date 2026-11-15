@@ -9,13 +9,13 @@ Open `index.html` in a browser, or publish with **GitHub Pages** (Settings → P
 
 ## How it works
 1. User picks a location (or enters lat/lon), soil type, previous crop, and irrigation availability.
-2. The app calls the **NASA POWER API** (no key needed) for the last 3 full years: precipitation (`PRECTOTCORR`, GPM/IMERG-based), temperature (`T2M`), root-zone wetness (`GWETROOT`, MERRA-2).
+2. The app calls the **NASA POWER API** (no key needed) for the last 3 full years: precipitation (`PRECTOTCORR`, bias-corrected, MERRA-2-based), temperature (`T2M`), root-zone wetness (`GWETROOT`, MERRA-2).
 3. A **transparent rule-based scoring model** ranks 9 crops (0–100) and shows the reason behind every point: plant-family change (pest/disease cycle), nitrogen balance (legumes), water need vs supply, temperature range, soil suitability.
 4. If NASA POWER is unreachable, approximate built-in demo values are used and clearly labeled.
 
 ## NASA data
 - NASA POWER (Prediction Of Worldwide Energy Resources), agroclimatology community
-- GPM IMERG-based precipitation; MERRA-2 meteorology and soil wetness
+- MERRA-2-based precipitation (bias-corrected), temperature and root-zone soil wetness
 
 ## Limitations (honesty note)
 Rule-based, not machine learning. Crop parameters are simplified agronomic values; validate with local extension services. Future work: SMAP soil-moisture layers, trained models on regional yield data.
@@ -30,7 +30,7 @@ Rule-based, not machine learning. Crop parameters are simplified agronomic value
 
 **Use of AI:** We use an explainable rule-based scoring model (no black box) that ranks crops and states the reason for each recommendation. Machine learning on regional yield data is planned future work.
 
-**NASA Data:** NASA POWER API (GPM/IMERG-based precipitation, MERRA-2 temperature and root-zone soil wetness). SMAP is planned as a future layer.
+**NASA Data:** NASA POWER API (MERRA-2-based precipitation, temperature and root-zone soil wetness). SMAP is planned as a future layer.
 
 **Other References:** Standard crop-rotation agronomy (plant-family rotation, legume nitrogen fixation) and local extension guidelines.
 
@@ -41,7 +41,7 @@ Rule-based, not machine learning. Crop parameters are simplified agronomic value
 1. **Title:** AgroPulse, Team MMSS, tagline, logo.
 2. **Problem:** Climate change and soil degradation make rotation planning hard; wrong sequences spread pests and drain nutrients.
 3. **Solution:** A smart digital agronomist: location + soil + last crop → ranked next crops.
-4. **NASA data:** POWER (GPM precipitation, MERRA-2 temperature and soil wetness), with a diagram of data → scoring → advice.
+4. **NASA data:** POWER (MERRA-2-based precipitation, temperature and soil wetness), with a diagram of data → scoring → advice.
 5. **Live demo:** Screenshot of the top-3 results with the reasons list.
 6. **Impact:** Healthier soil, less water waste, fewer pest outbreaks, bilingual access for farmers.
 7. **Roadmap and team:** SMAP layers, ML on yield data, mobile/SMS access; team members and links.
